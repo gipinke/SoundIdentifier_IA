@@ -1,5 +1,20 @@
+import pyaudio
+
+# Server specs
+port = 5001
+
+# Audio specs
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 16000
+CHUNK = 1280
+
+# Firebase Message
+serverToken = 'AAAAkn3SXl0:APA91bHnUPAT7Kgwcc4XOWIyfk92wkiu1G4cfWRpI6K-2Efpx8rescBdbXGnA8mNbXrZQ1kc5OZMlS9KsxRmMT-W6ffT1b6M-pT9HK_EiTiPbydeUP_I1_9i7PjS9OMcNEzgCSG789U1'
+serverUrl = "https://fcm.googleapis.com/fcm/send"
+
 # Define paths used
-csv_path = "metadata/UrbanSound8K.csv"
+csv_path = "4_Classes_Audio.csv"
 features_filepath = "data/features_mel_spec.npy"
 classes_filepath = "data/classes_mel_spec.npy"
 model_filepath = "model/simple-train-nb3.hdf5"
@@ -19,23 +34,9 @@ spatial_dropout_layer_2 = 0.14
 l2_rate = 0.0005
 
 # Model variables
-epochs = 20
-batch_size = 2
+epochs = 150
+batch_size = 8
 kernel_size = (5, 5)
-
-# Array containing audio class_names for 10 classes
-# audio_class_names = [
-#     'Air Conditioner',
-#     'Car Horn',
-#     'Children Playing',
-#     'Dog bark',
-#     'Drilling',
-#     'Engine Idling',
-#     'Gun Shot',
-#     'Jackhammer',
-#     'Siren',
-#     'Street Music'
-# ]
 
 # Array containing audio class_names for 4 classes
 audio_class_names = [
@@ -45,5 +46,10 @@ audio_class_names = [
     'Siren',
 ]
 
+car_horn = 0
+dog_bark = 1
+gun_shot = 2
+siren = 3
+
 # Test Audios file name
-test_audios_files = ["Gun-Shot.wav", "Siren.wav", "Dog-Bark.wav", "Car-Horn.wav"]
+test_audios_files = ["gun-shot.wav", "siren.wav", "dog-bark.wav", "car-horn.wav"]
