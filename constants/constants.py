@@ -14,7 +14,7 @@ serverToken = 'AAAAkn3SXl0:APA91bHnUPAT7Kgwcc4XOWIyfk92wkiu1G4cfWRpI6K-2Efpx8res
 serverUrl = "https://fcm.googleapis.com/fcm/send"
 
 # Define paths used
-csv_path = "4_Classes_Audio.csv"
+csv_path = "metadata/4_Classes_Audio.csv"
 features_filepath = "data/features_mel_spec.npy"
 classes_filepath = "data/classes_mel_spec.npy"
 model_filepath = "model/simple-train-nb3.hdf5"

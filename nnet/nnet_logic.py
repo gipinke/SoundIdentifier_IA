@@ -205,37 +205,6 @@ def model_creation():
         'RECALL': recalls,
     }).sort_values(by="ACCURACY", ascending=False))
 
-    # Example of classification with created model
-    # for test_audio in constants.test_audios_files:
-    #     count = 0
-    #     error_count = 0
-    #     for test_audio in features_test:
-    #         teste_audio_reshaped = test_audio.reshape(
-    #             1,
-    #             constants.num_rows,
-    #             constants.num_columns,
-    #             constants.num_channels
-    #         )
-    #
-    #         audio_prediction = model.predict(teste_audio_reshaped)
-    #         predict_max_value = np.max(audio_prediction)
-    #         prediction_class = label_encoder.inverse_transform(np.argmax(audio_prediction, axis=-1))
-    #
-    #         if predict_max_value >= 0.8:
-    #             if classes_test[count] != prediction_class[0]:
-    #                 print('Audio played:', classes_test[count])
-    #                 print('Predicted Label:', prediction_class[0])
-    #                 print('Predicted Acc:', predict_max_value)
-    #                 error_count += 1
-    #         else:
-    #             print('Audio played:', classes_test[count])
-    #             print('Predicted Label:', prediction_class[0])
-    #             print('Predicted Acc:', predict_max_value)
-    #             error_count += 1
-    #
-    #         count += 1
-    #     print(f"{error_count}/{count}")
-
 
 def load_model():
     model = tf.keras.models.load_model(constants.model_filepath)
@@ -243,14 +212,14 @@ def load_model():
 
 
 def classification(
-        audio,
-        audio_data,
-        model,
-        user_firebase_token,
-        isCarHornEnable,
-        isGunShotEnable,
-        isDogBarkEnable,
-        isSirenEnable
+    audio,
+    audio_data,
+    model,
+    user_firebase_token,
+    isCarHornEnable,
+    isGunShotEnable,
+    isDogBarkEnable,
+    isSirenEnable
 ):
     waveFile = wave.open("teste.wav", 'wb')
     waveFile.setnchannels(constants.CHANNELS)
