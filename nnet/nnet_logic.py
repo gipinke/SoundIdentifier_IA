@@ -2,11 +2,10 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import wave
 
 # "From" imports
 from keras import backend as keras_backend
-from utils import NNET, api
+from utils import NNET, api, audio_helper
 from constants import constants
 from datetime import datetime
 from sklearn.metrics import confusion_matrix
@@ -15,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 label_encoder = LabelEncoder()
+last_classifications = dict([])
 
 
 def model_creation():
@@ -34,7 +34,9 @@ def model_creation():
         max_number_of_frames = 0
 
         for database_index, database_value in tqdm(database.iterrows()):
-            audio_file_path = NNET.get_audio_path(database_value['filename'], database_value['fold'])
+            # audio_file_path = NNET.get_audio_path(database_value['filename'], database_value['fold'])
+            audio_file_path = NNET.get_audio_path(database_value['filename'], database_value['fold'],
+                                                  database_value['augment'])
             class_name = database_value['class_name']
 
             # Extract Log-Mel Spectrograms without padding
@@ -91,6 +93,7 @@ def model_creation():
     print(f"Gun Shot array size: {(arr == 'gun_shot').sum()}")
     print(f"Car Horn array size: {(arr == 'car_horn').sum()}")
     print(f"Siren array size: {(arr == 'siren').sum()}")
+    print(f"Default size: {(arr == 'default').sum()}")
 
     # Transform classes data into binary array
     classes_train_encoded = tf.keras.utils.to_categorical(label_encoder.fit_transform(classes_train))
@@ -146,7 +149,7 @@ def model_creation():
             classes_train_encoded,
             batch_size=constants.batch_size,
             epochs=constants.epochs,
-            validation_split=1/5.,
+            validation_split=1 / 12.,
             # validation_data=(features_test, classes_test_encoded),
             callbacks=[checkpointer],
             verbose=1
@@ -193,7 +196,6 @@ def model_creation():
     print(f"False Negatives: {false_neg}")
     print("\n")
 
-    # accuracies = NNET.acc_per_class(cm)
     accuracies = NNET.accuracy_per_class(true_pos, true_neg, false_pos, false_neg)
     precisions = NNET.precision_per_class(true_pos, false_pos)
     recalls = NNET.recall_per_class(true_pos, false_neg)
@@ -212,70 +214,84 @@ def load_model():
 
 
 def classification(
-    audio,
-    audio_data,
-    model,
-    user_firebase_token,
-    isCarHornEnable,
-    isGunShotEnable,
-    isDogBarkEnable,
-    isSirenEnable
+        audio_data,
+        model,
+        user_firebase_token,
+        isCarHornEnable,
+        isGunShotEnable,
+        isDogBarkEnable,
+        isSirenEnable,
+        user_dir_path
 ):
-    waveFile = wave.open("teste.wav", 'wb')
-    waveFile.setnchannels(constants.CHANNELS)
-    waveFile.setsampwidth(audio.get_sample_size(constants.FORMAT))
-    waveFile.setframerate(constants.RATE)
-    waveFile.writeframes(b''.join(audio_data))
-    waveFile.close()
+    try:
+        filename = datetime.now().timestamp()
 
-    # Extract Log-Mel Spectrogram without padding
-    audio_feature = NNET.get_mel_spectrogram(
-        "teste.wav",
-        constants.padding_mels_or_mfcc,
-        constants.number_mels_or_mfcc
-    )
+        # Create file for classification
+        audio_helper.create_audio_file(audio_data, f"{user_dir_path}/{filename}.wav")
 
-    size = len(audio_feature[0])
-
-    # Add padding if required
-    if size < constants.num_columns:
-        diff = constants.num_columns - size
-        left = diff // 2
-        right = diff - left
-        audio_feature = np.pad(
-            audio_feature,
-            pad_width=((0, 0), (left, right)),
-            mode='constant'
+        # Extract Log-Mel Spectrogram without padding
+        audio_feature = NNET.get_mel_spectrogram(
+            f"{user_dir_path}/{filename}.wav",
+            constants.padding_mels_or_mfcc,
+            constants.number_mels_or_mfcc
         )
 
-    audio_feature_reshaped = audio_feature.reshape(
-        1,
-        constants.num_rows,
-        constants.num_columns,
-        constants.num_channels
-    )
+        # Delete file after get audio features
+        audio_helper.delete_audio_file(f"{user_dir_path}/{filename}.wav")
 
-    audio_prediction = model.predict(audio_feature_reshaped)
-    predict_max_value = np.max(audio_prediction)
-    prediction_class = label_encoder.inverse_transform(np.argmax(audio_prediction, axis=-1))
+        size = len(audio_feature[0])
+        
+        # Add padding if required
+        if size < constants.num_columns:
+            diff = constants.num_columns - size
+            left = diff // 2
+            right = diff - left
+            audio_feature = np.pad(
+                audio_feature,
+                pad_width=((0, 0), (left, right)),
+                mode='constant'
+            )
 
-    print('[PREDICTED LABEL]:', prediction_class[0])
-    print('[PREDICTED ACC]:', predict_max_value)
-    if predict_max_value >= 0.8:
-        notification_text = ""
-        notification_id = -1
-        if prediction_class[0] == 'dog_bark' and isDogBarkEnable == "true":
-            notification_text = "Foi detectado um latido perto de você"
-            notification_id = constants.dog_bark
-        elif prediction_class[0] == 'gun_shot' and isGunShotEnable == "true":
-            notification_text = "Foi detectado um tiroteio perto de você"
-            notification_id = constants.gun_shot
-        elif prediction_class[0] == 'car_horn' and isCarHornEnable == "true":
-            notification_text = "Foi detectado uma buzina perto de você"
-            notification_id = constants.car_horn
-        elif prediction_class[0] == 'siren' and isSirenEnable == "true":
-            notification_text = "Foi detectado uma sirene perto de você"
-            notification_id = constants.siren
+        audio_feature_reshaped = audio_feature.reshape(
+            1,
+            constants.num_rows,
+            constants.num_columns,
+            constants.num_channels
+        )
 
-        if notification_id != -1 and notification_text != 0:
-            api.send_classification(user_firebase_token, notification_text, notification_id)
+        audio_prediction = model.predict(audio_feature_reshaped)
+        predict_max_value = np.max(audio_prediction)
+        prediction_class = label_encoder.inverse_transform(np.argmax(audio_prediction, axis=-1))
+        print('[PREDICTED LABEL]:', prediction_class[0])
+        print('[PREDICTED ACC]:', predict_max_value)
+
+        if user_dir_path in last_classifications and (
+                datetime.now() - last_classifications[user_dir_path]).total_seconds() < 10:
+            print("[ERROR]: Usuário já recebeu uma classificação nos últimos 10 segundos")
+
+        else:
+            if user_dir_path in last_classifications:
+                del last_classifications[user_dir_path]
+
+            if predict_max_value >= 0.85:
+                notification_text = ""
+                notification_id = -1
+                if prediction_class[0] == 'dog_bark' and isDogBarkEnable == "true":
+                    notification_text = "Foi detectado um latido perto de você"
+                    notification_id = constants.dog_bark
+                elif prediction_class[0] == 'gun_shot' and isGunShotEnable == "true":
+                    notification_text = "Foi detectado um tiroteio perto de você"
+                    notification_id = constants.gun_shot
+                elif prediction_class[0] == 'car_horn' and isCarHornEnable == "true":
+                    notification_text = "Foi detectado uma buzina perto de você"
+                    notification_id = constants.car_horn
+                elif prediction_class[0] == 'siren' and isSirenEnable == "true":
+                    notification_text = "Foi detectado uma sirene perto de você"
+                    notification_id = constants.siren
+
+                if notification_id != -1 and notification_text != 0:
+                    last_classifications[user_dir_path] = datetime.now()
+                    api.send_classification(user_firebase_token, notification_text, notification_id)
+
+    except:
+        print("[ERROR]: Exception")

@@ -14,27 +14,18 @@ from sklearn import metrics
 
 def get_database(filepath):
     database_pd = pd.read_csv(filepath)
-    database_df = pd.DataFrame(database_pd, columns=["file", "fold", "class", "augment"])
+    database_df = pd.DataFrame(database_pd, columns=["slice_file_name", "fold", "class"])
 
     # Comment for 10 Classes database
-    database_df = database_df.loc[database_df['class'].isin([
-        'car_horn',
-        'default',
-        'dog_bark',
-        'gun_shot',
-        'people_talking',
-        'siren',
-    ])]
+    database_df = database_df.loc[database_df['class'].isin(['car_horn', 'dog_bark', 'gun_shot', 'siren'])]
 
-    database_df = database_df.rename(columns={"file": "filename", "class": "class_name"})
+    database_df = database_df.rename(columns={"slice_file_name": "filename", "class": "class_name"})
+
     return database_df
 
 
-def get_audio_path(filename, fold, augment):
-    if augment == 'none' or augment is None:
-        audio_path = f"{Path.home()}/Desktop/UrbanSound8K/audio/fold{fold}/{filename}"
-    else:
-        audio_path = f"{Path.home()}/Desktop/UrbanSound8K/audio/new_augmented/fold{fold}/{augment}/{filename}"
+def get_audio_path(filename, fold):
+    audio_path = f"{Path.home()}/Desktop/UrbanSound8K/audio/fold{fold}/{filename}"
     return audio_path
 
 
@@ -81,14 +72,6 @@ def get_mel_spectrogram(filepath, mfcc_padding, number_mels):
         # Normalize between -1 and 1
         normalized_mel = librosa.util.normalize(mel_db)
 
-        # Generate mfcc scaled filterbanks
-        # mfcc = librosa.feature.mfcc(
-        #     normalized_audio,
-        #     sr=audio_sampling_rate,
-        #     n_mfcc=number_mels
-        # )
-        # normalized_mfcc = librosa.util.normalize(mfcc)
-
         # Should we require padding
         shape = normalized_mel.shape[1]
         if mfcc_padding > 0 & shape < mfcc_padding:
@@ -106,6 +89,41 @@ def get_mel_spectrogram(filepath, mfcc_padding, number_mels):
         return None
 
     return normalized_mel
+
+
+def extract_mfcc_features(filepath, mfcc_padding, number_mfcc):
+    try:
+        # Get audio and sampling rate
+        loaded_audio, audio_sampling_rate = librosa.load(filepath)
+
+        # Normalize audio data
+        normalized_audio = librosa.util.normalize(loaded_audio)
+
+        # Get MFCC sequence and normalize it
+        mfcc_sequence = librosa.feature.mfcc(
+            y=normalized_audio,
+            sr=audio_sampling_rate,
+            n_mfcc=number_mfcc
+        )
+        normalized_mfcc_sequence = librosa.util.normalize(mfcc_sequence)
+
+        # Check if has padding
+        shape = normalized_mfcc_sequence[1]
+        if mfcc_padding > 0 and shape < mfcc_padding:
+            diff = mfcc_padding - shape
+            left = diff // 2
+            right = diff - left
+            normalized_mfcc_sequence = np.pad(
+                normalized_mfcc_sequence,
+                pad_width=((0, 0), (left, right)),
+                mode='constant'
+            )
+
+    except Exception as e:
+        print(f"Error in extract mfcc features: {e}")
+        return None
+
+    return normalized_mfcc_sequence
 
 
 def add_padding(audio_features, max_number_of_frames):
@@ -130,60 +148,97 @@ def add_padding(audio_features, max_number_of_frames):
     return audio_features_padded
 
 
-def create_model(num_classes, spatial_dropout_layer_1=0, spatial_dropout_layer_2=0, l2_rate=0):
-    model = tf.keras.Sequential()
+# def create_model(num_labels, spatial_dropout_layer_1=0, spatial_dropout_layer_2=0, l2_rate=0):
+#     model = tf.keras.Sequential()
+#
+#     # Add first convolutional layer (input layer) with 32 filters
+#     model.add(tf.keras.layers.Conv2D(
+#         filters=32,
+#         kernel_size=constants.kernel_size,
+#         kernel_regularizer=tf.keras.regularizers.l2(l2_rate),
+#         input_shape=(
+#             constants.num_rows,
+#             constants.num_columns,
+#             constants.num_channels
+#         )
+#     ))
+#     model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+#     model.add(tf.keras.layers.BatchNormalization())
+#     model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_1))
+#
+#     # Add second convolutional layer with 32 filters
+#     model.add(tf.keras.layers.Conv2D(
+#         filters=32,
+#         kernel_size=constants.kernel_size,
+#         kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
+#     ))
+#     model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+#     model.add(tf.keras.layers.BatchNormalization())
+#     model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+#     model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_1))
+#
+#     # Add third convolutional layer with 64 filters
+#     model.add(tf.keras.layers.Conv2D(
+#         filters=64,
+#         kernel_size=constants.kernel_size,
+#         kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
+#     ))
+#     model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+#     model.add(tf.keras.layers.BatchNormalization())
+#     model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_2))
+#
+#     # Add fourth convolutional layer with 64 filters
+#     model.add(tf.keras.layers.Conv2D(
+#         filters=64,
+#         kernel_size=constants.kernel_size,
+#         kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
+#     ))
+#     model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+#     model.add(tf.keras.layers.BatchNormalization())
+#
+#     # Reduces each h×w feature map to a single number by taking the average of all h,w values.
+#     model.add(tf.keras.layers.GlobalAveragePooling2D())
+#
+#     # Softmax output
+#     model.add(tf.keras.layers.Dense(num_labels, activation='softmax'))
+#     return model
 
-    # Add first convolutional layer (input layer) with 32 filters
-    model.add(tf.keras.layers.Conv2D(
-        filters=32,
-        kernel_size=constants.kernel_size,
-        kernel_regularizer=tf.keras.regularizers.l2(l2_rate),
+
+# def create_model(num_classes, spatial_dropout_layer_1=0, spatial_dropout_layer_2=0, l2_rate=0):
+#     base_model = tf.keras.applications.resnet.ResNet50(
+#         weights=None,
+#         include_top=None,
+#         pooling=(2, 2),
+#         input_shape=(
+#             constants.num_rows,
+#             constants.num_columns,
+#             constants.num_channels
+#         )
+#     )
+#
+#     x = base_model.output
+#     x = tf.keras.layers.GlobalAveragePooling2D()(x)
+#     x = tf.keras.layers.Dropout(0.5)(x)
+#     predictions = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+#     return tf.keras.Model(inputs=base_model.input, outputs=predictions)
+
+
+def create_model(num_classes, spatial_dropout_layer_1=0, spatial_dropout_layer_2=0, l2_rate=0):
+    base_model = tf.keras.applications.EfficientNetB0(
+        weights=None,
+        include_top=None,
         input_shape=(
             constants.num_rows,
             constants.num_columns,
             constants.num_channels
         )
-    ))
-    model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_1))
+    )
 
-    # Add second convolutional layer with 32 filters
-    model.add(tf.keras.layers.Conv2D(
-        filters=32,
-        kernel_size=constants.kernel_size,
-        kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
-    ))
-    model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
-    model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_1))
-
-    # Add third convolutional layer with 64 filters
-    model.add(tf.keras.layers.Conv2D(
-        filters=64,
-        kernel_size=constants.kernel_size,
-        kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
-    ))
-    model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.SpatialDropout2D(spatial_dropout_layer_2))
-
-    # Add fourth convolutional layer with 64 filters
-    model.add(tf.keras.layers.Conv2D(
-        filters=64,
-        kernel_size=constants.kernel_size,
-        kernel_regularizer=tf.keras.regularizers.l2(l2_rate)
-    ))
-    model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-    model.add(tf.keras.layers.BatchNormalization())
-
-    # Reduces each h×w feature map to a single number by taking the average of all h,w values.
-    model.add(tf.keras.layers.GlobalAveragePooling2D())
-
-    # Softmax output
-    model.add(tf.keras.layers.Dense(num_classes, activation='softmax'))
-    return model
+    x = base_model.output
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.7)(x)
+    predictions = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+    return tf.keras.Model(inputs=base_model.input, outputs=predictions)
 
 
 def evaluate_model(model, x_train, y_train, x_test, y_test):
@@ -330,30 +385,3 @@ def acc_per_class(np_probs_array):
         acc = (correct / total) * 100
         accs.append(acc)
     return accs
-
-
-def accuracy_per_class(true_pos, true_neg, false_pos, false_neg):
-    accuracys = []
-    for idx in range(0, true_pos.shape[0]):
-        accuracy = ((true_pos[idx] + true_neg[idx]) / (
-                    true_pos[idx] + true_neg[idx] + false_pos[idx] + false_neg[idx])) * 100
-        accuracys.append(accuracy)
-    return accuracys
-
-
-def precision_per_class(true_pos, false_pos):
-    precisions = []
-    for idx in range(0, true_pos.shape[0]):
-        precision = (true_pos[idx] / (true_pos[idx] + false_pos[idx])) * 100
-        precisions.append(precision)
-
-    return precisions
-
-
-def recall_per_class(true_pos, false_neg):
-    recalls = []
-    for idx in range(0, true_pos.shape[0]):
-        recall = (true_pos[idx] / (true_pos[idx] + false_neg[idx])) * 100
-        recalls.append(recall)
-
-    return recalls

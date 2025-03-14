@@ -1,0 +1,17 @@
+Mel-Spectograms (https://www.youtube.com/watch?v=9GHCiiDLHQ4):
+
+- Pessoas percebem a frequencia de forma logaritimica, ou seja, quanto mais frequencia o som tiver, pior resulução ele terá.
+
+- Com esse tipo de espectrograma nós conseguimos retirar as seguintes features:
+	- Representação Tempo-Frequencia
+	- Representação da amplitude perceptivel
+	- (Diferencial do espctrograma comun) Representação da frequencia perceptivel
+
+- Como converter espectrograma em mel-espectrograma
+	- Extrair espectrograma
+	- Converter a amplitude para DBs (Decibéis)
+	- Converter a frequencia para a escala Mel.
+
+- Número de "mel bands", pode variar conforme o seu problema.
+	- Exemplos de valores: 40, 60, 90, 128.
+

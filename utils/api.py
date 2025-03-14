@@ -25,6 +25,6 @@ def send_classification(user_firebase_token, notification_text, notification_id)
         data=json.dumps(body)
     )
     if response.status_code == 200:
-        print('[OK]: Push enviado')
+        print('[SUCCESS]: Push enviado')
     else:
         print("[ERROR] Falha ao enviar o push")

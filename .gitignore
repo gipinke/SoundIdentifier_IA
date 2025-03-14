@@ -130,3 +130,7 @@ dmypy.json
 
 results/
 .idea/
+
+comments.py
+
+*.npy
